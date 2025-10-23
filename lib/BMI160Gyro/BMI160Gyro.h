@@ -134,9 +134,11 @@ public:
         Serial.print(this->roll_angle);
         Serial.print("@");
         Serial.print(this->pitch_angle);
+        Serial.print("@");
+        Serial.print(this->_yaw_velocity);
         Serial.println("]");
     }
-    int calculateNewAngle(int currentAngle, int midAngle);
+    int calculateNewAngle(int currentAngle);
     void getServoIds(String *servos) const {
         for(int i = 0; i < this->_config.servoCount; i++) {
             servos[i] = String(this->_config.servos[i]);
@@ -167,9 +169,16 @@ private:
     float _pitch_offset = 0.0; // degrees per second
     float _yaw_offset = 0.0;   // degrees per second
 
+    // Yaw velocity filtering
+    static const int MEDIAN_SIZE = 3;
+    float _yaw_buffer[MEDIAN_SIZE] = {0, 0, 0};
+    float _ema_yaw = 0.0;
+    const float FILTER_ALPHA = 0.4; // EMA smoothing factor (0-1, higher = more responsive)
+
     // Helper functions
     float convertRawGyro(int gRaw);
     float unwrapAngle(float prev, float current);
+    float applyYawFilter(float raw_yaw);
     
     float yaw_angle = 0;
     float roll_angle = 0;

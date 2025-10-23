@@ -13,6 +13,9 @@ Motor::Motor(const MotorConfig &config) : _config(config),
         ledcSetup(this->_config.channel2, this->_config.pwmFrequency, this->_config.pwmResolution);
         ledcAttachPin(this->_config.pin2, this->_config.channel2);
     }
+
+    setThrottle(0);
+    loop();
 }
 
 void Motor::setThrottle(int percent)

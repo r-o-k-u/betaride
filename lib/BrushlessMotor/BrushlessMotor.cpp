@@ -6,6 +6,9 @@ BrushlessMotor::BrushlessMotor(const BrushlessMotorConfig &config) : _config(con
     // Configure LEDC channel and attach pin for this ESC
     ledcSetup(this->_config.channel, this->_config.pwmFrequency, this->_config.pwmResolution);
     ledcAttachPin(this->_config.pin, this->_config.channel);
+
+    setThrottle(0);
+    loop();
 }
 
 void BrushlessMotor::setThrottle(int percent)

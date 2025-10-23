@@ -44,6 +44,9 @@ private:
     void loadGyros();
     void loadControllerRules();
     void loadController();
+
+    void disarm();
+    void blinkD2LED();
 };
 
 #endif

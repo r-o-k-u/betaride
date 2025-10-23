@@ -83,18 +83,22 @@ void BMI160Gyro::loop()
     float raw_yaw = convertRawGyro(gZ);   // Raw yaw velocity (degrees/sec)
 
     // Apply calibration offsets if calibrated
+    float calibrated_yaw;
     if (_calibrated)
     {
         _roll_velocity = raw_roll - _roll_offset;
         _pitch_velocity = raw_pitch - _pitch_offset;
-        _yaw_velocity = raw_yaw - _yaw_offset;
+        calibrated_yaw = raw_yaw - _yaw_offset;
     }
     else
     {
         _roll_velocity = raw_roll;
         _pitch_velocity = raw_pitch;
-        _yaw_velocity = raw_yaw;
+        calibrated_yaw = raw_yaw;
     }
+
+    // Apply filtering to yaw velocity to reduce vibrations
+    _yaw_velocity = applyYawFilter(calibrated_yaw);
 
     if (this->measure_angle)
     {
@@ -208,28 +212,75 @@ float BMI160Gyro::unwrapAngle(float prev, float current)
     return current;
 }
 
-int BMI160Gyro::calculateNewAngle(int currentAngle, int midAngle) {
-    bool rotationLeft = _yaw_velocity * (_config.yawInverted ? -1 : 1) > 0;
+int BMI160Gyro::calculateNewAngle(int currentAngle) {
     float currentAngleVelocity = abs(_yaw_velocity);
     float desiredAngleVelocity = _config.desiredRotation;
 
     float error = desiredAngleVelocity - currentAngleVelocity;
+    if(abs(error) < 5.0) {  // Dead zone: ±5 deg/s
+        return currentAngle;
+    }
+    // If current velocity > than desired it means that car is OVER rotate. 
+    //Error and correction will be negative.
+    // In this case we need to reduce the angle.
     float correction = error * _config.kP;
     correction = constrain(correction, -_config.maxCorrection, _config.maxCorrection);
 
-    if(correction > 0) {
-        // Under steering. Correct by increasing the angle.
-        if(rotationLeft) {
-            return currentAngle - correction;
+    if(_yaw_velocity < 0 && _config.yawInverted) {
+        // Car rotates left
+        if(correction < 0) {
+            // OVERROTATE:Reduce the angle (increate angle number)
+            return currentAngle + abs(correction);
         } else {
-            return currentAngle + correction;
+            // UNDERROTATE: Increase the angle (decrease angle number)
+            return currentAngle - abs(correction);
         }
     } else {
-        // Over steering. Correct by decreasing the angle.
-        if(rotationLeft) {
-            return currentAngle + correction;
+        // Car rotates right
+        if(correction < 0) {
+            // OVERROTATE: Reduce the angle (decrease angle number)
+            return currentAngle - abs(correction);
         } else {
-            return currentAngle - correction;
+            // UNDERROTATE: Increase the angle (increase angle number)
+            return currentAngle + abs(correction);
         }
     }
+}
+
+float BMI160Gyro::applyYawFilter(float raw_yaw) {
+    // Step 1: Median filter (removes spikes from vibrations)
+    // Shift buffer and add new value
+    for (int i = 0; i < MEDIAN_SIZE - 1; i++) {
+        _yaw_buffer[i] = _yaw_buffer[i + 1];
+    }
+    _yaw_buffer[MEDIAN_SIZE - 1] = raw_yaw;
+    
+    // Create sorted copy for median calculation
+    float sorted[MEDIAN_SIZE];
+    memcpy(sorted, _yaw_buffer, sizeof(_yaw_buffer));
+    
+    // Simple bubble sort for 3 elements
+    if (sorted[0] > sorted[1]) { 
+        float t = sorted[0]; 
+        sorted[0] = sorted[1]; 
+        sorted[1] = t; 
+    }
+    if (sorted[1] > sorted[2]) { 
+        float t = sorted[1]; 
+        sorted[1] = sorted[2]; 
+        sorted[2] = t; 
+    }
+    if (sorted[0] > sorted[1]) { 
+        float t = sorted[0]; 
+        sorted[0] = sorted[1]; 
+        sorted[1] = t; 
+    }
+    
+    // Get median value (middle element after sorting)
+    float median = sorted[1];
+    
+    // Step 2: Exponential Moving Average (smooths remaining noise)
+    _ema_yaw = FILTER_ALPHA * median + (1.0 - FILTER_ALPHA) * _ema_yaw;
+    
+    return _ema_yaw;
 }
