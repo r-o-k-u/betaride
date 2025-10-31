@@ -14,6 +14,7 @@ BrushlessMotor::BrushlessMotor(const BrushlessMotorConfig &config) : _config(con
 void BrushlessMotor::setThrottle(int percent)
 {
     this->_throttleLvl = percent;
+    this->_lastInputTime = millis();
 }
 
 void BrushlessMotor::setDirection(MotorDirection direction)
@@ -30,7 +31,11 @@ void BrushlessMotor::setDirection(MotorDirection direction)
 
 void BrushlessMotor::loop()
 {
+    if(millis() - this->_lastInputTime > 300) {
+        this->_throttleLvl = 0;
+    }
 
+    Serial.println("Throttle: " + String(this->_throttleLvl));
     if (this->_reverseAt != 0)
     {
         unsigned long currentTime = millis();
