@@ -6,11 +6,15 @@ BrushlessMotor::BrushlessMotor(const BrushlessMotorConfig &config) : _config(con
     // Configure LEDC channel and attach pin for this ESC
     ledcSetup(this->_config.channel, this->_config.pwmFrequency, this->_config.pwmResolution);
     ledcAttachPin(this->_config.pin, this->_config.channel);
+
+    setThrottle(0);
+    loop();
 }
 
 void BrushlessMotor::setThrottle(int percent)
 {
     this->_throttleLvl = percent;
+    this->_lastInputTime = millis();
 }
 
 void BrushlessMotor::setDirection(MotorDirection direction)
@@ -27,6 +31,9 @@ void BrushlessMotor::setDirection(MotorDirection direction)
 
 void BrushlessMotor::loop()
 {
+    if(millis() - this->_lastInputTime > 300) {
+        this->_throttleLvl = 0;
+    }
 
     if (this->_reverseAt != 0)
     {

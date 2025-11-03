@@ -16,7 +16,7 @@ void PS5_Controller::begin()
 
 void PS5_Controller::loop()
 {
-    if (!this->isConnected())
+    if (!this->isConnected() || millis() - connectedAt < 400)
     {
         return;
     }

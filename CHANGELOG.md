@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 3 Nov 2025
+
+### Features
+- BMI160 gyro support 
+- Indicate controller connection (D2 Led)
+
+### Safety
+- Disarm on startup
+- Disarm on controller connection loss
+
+### Fixes
+- Prevent motors stuck on contant speed when switch value goes out of range
+
 ## [0.1.1] - 16 Sep 2025
 
 ### Firmware

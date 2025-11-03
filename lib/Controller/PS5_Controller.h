@@ -174,6 +174,7 @@ private:
     int getUpLeft() { return ps5.UpLeft() ? 1 : 0; }
     int getDownLeft() { return ps5.DownLeft() ? 1 : 0; }
 
+    long connectedAt = 0;
 public:
     PS5_Controller(PS5ControllerConfig config)
         : _config(config),
@@ -188,7 +189,16 @@ public:
         if(!_ready) {
             return false;
         }
-        return ps5.isConnected(); 
+        boolean connected = ps5.isConnected(); 
+        if(connected && connectedAt == 0) {
+            connectedAt = millis();
+        }
+
+        if(!connected) {
+            connectedAt = 0;
+        }
+        
+        return connected;
     }
 };
 

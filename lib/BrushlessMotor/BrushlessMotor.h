@@ -84,6 +84,8 @@ private:
 
     int _throttleLvl;
     int _reverseAt;
+
+    long _lastInputTime;
 };
 
 #endif

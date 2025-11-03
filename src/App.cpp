@@ -19,76 +19,144 @@ void App::testController()
     _controller->loop();
     _controller->printAllChannels();
 }
+
+void App::testGyro()
+{
+    if (_gyros.empty())
+        return;
+
+    for (auto &gyro : _gyros)
+    {
+        gyro.second->setMeasureAngle(true);
+        gyro.second->loop();
+        gyro.second->printAngles();
+    }
+}
+
+void App::calibrateGyro()
+{
+    if (_gyros.empty())
+        return;
+
+    for (auto &gyro : _gyros)
+    {
+        gyro.second->calibrate();
+    }
+}
+
 void App::loop()
 {
-    if(_controller == nullptr || !_controller->isConnected() || _ruleEngine == nullptr || !_ruleEngine->hasRules()) {
-        return;
+    if (_controller == nullptr || !_controller->isConnected() || _ruleEngine == nullptr || !_ruleEngine->hasRules())
+    {
+        blinkD2LED();
+        return this->disarm();
     }
+    digitalWrite(2, HIGH); // Indicate that controller connected & rules are loaded
 
     _controller->loop();
-    for(auto &rule : _ruleEngine->rules) {
-        if(!_ruleEngine->checkCondition(rule.condition)) {
+    for (auto &rule : _ruleEngine->rules)
+    {
+        if (!_ruleEngine->checkCondition(rule.condition))
+        {
             continue;
         }
-        if(rule.hasSubCondition && !_ruleEngine->checkCondition(rule.subCondition)) {
+        if (rule.hasSubCondition && !_ruleEngine->checkCondition(rule.subCondition))
+        {
             continue;
         }
 
-        if(rule.effect->count == 0) {
+        if (rule.effect->count == 0)
+        {
             continue;
         }
 
-        for(int i = 0; i < rule.effect->count; i++) {
+        for (int i = 0; i < rule.effect->count; i++)
+        {
             String arduinoResourceId = rule.effect->resourceIds[i];
             std::string resourceId = arduinoResourceId.c_str();
-            if(rule.effect->type() == TYPE_SERVOS) {
+            if (rule.effect->type() == TYPE_SERVOS)
+            {
                 auto it = _servos.find(resourceId);
-                if(it != _servos.end()) {
+                if (it != _servos.end())
+                {
                     int angle = _ruleEngine->getServoAngle(rule, it->second);
-                    if(angle != -1) {
+                    if (angle != -1)
+                    {
                         it->second->setAngle(angle);
                     }
-                } 
-            }
-    
-            if(rule.effect->type() == TYPE_MOTORS) {
-                auto it = _motors.find(resourceId);
-                if(it != _motors.end()) {
-                    int speed = _ruleEngine->getMotorSpeed(rule);
-                    MotorDirection direction = _ruleEngine->getMotorDirection(rule);
-                    if(speed != -1) {
-                        it->second->setThrottle(speed);
-                    }
-                    if(direction != MotorDirection::UNSPECIFIED) {
-                        it->second->setDirection(direction);
-                    }
-                } 
-            }
-    
-            if(rule.effect->type() == TYPE_BRUSHLESS_MOTORS) {
-                auto it = _brushlessMotors.find(resourceId);
-                if(it != _brushlessMotors.end()) {
-                    int speed = _ruleEngine->getMotorSpeed(rule);
-                    MotorDirection direction = _ruleEngine->getMotorDirection(rule);
-                    if(speed != -1) {
-                        it->second->setThrottle(speed);
-                    }
-                    if(direction != MotorDirection::UNSPECIFIED) {
-                        it->second->setDirection(direction);
-                    }
-                } 
+                }
             }
 
+            if (rule.effect->type() == TYPE_MOTORS)
+            {
+                auto it = _motors.find(resourceId);
+                if (it != _motors.end())
+                {
+                    int speed = _ruleEngine->getMotorSpeed(rule);
+                    MotorDirection direction = _ruleEngine->getMotorDirection(rule);
+                    if (speed != -1)
+                    {
+                        it->second->setThrottle(speed);
+                    }
+                    if (direction != MotorDirection::UNSPECIFIED)
+                    {
+                        it->second->setDirection(direction);
+                    }
+                }
+            }
+
+            if (rule.effect->type() == TYPE_BRUSHLESS_MOTORS)
+            {
+                auto it = _brushlessMotors.find(resourceId);
+                if (it != _brushlessMotors.end())
+                {
+                    int speed = _ruleEngine->getMotorSpeed(rule);
+                    MotorDirection direction = _ruleEngine->getMotorDirection(rule);
+                    if (speed != -1)
+                    {
+                        it->second->setThrottle(speed);
+                    }
+                    if (direction != MotorDirection::UNSPECIFIED)
+                    {
+                        it->second->setDirection(direction);
+                    }
+                }
+            }
         }
     }
 
-    for(auto &servo : _servos) {
+    for (auto &gyro : _gyros)
+    {
+        gyro.second->loop();
+        if (gyro.second->isCalibrated() && gyro.second->exceededRotationThreshold())
+        {
+            String servos[10];
+            gyro.second->getServoIds(servos);
+            for (int i = 0; i < 10; i++)
+            {
+                if (strlen(servos[i].c_str()) > 0)
+                {
+                    auto it = _servos.find(servos[i].c_str());
+                    if (it != _servos.end())
+                    {
+                        int newAngle = gyro.second->calculateNewAngle(it->second->getAngle());
+                        it->second->setAngle(newAngle);
+                    }
+                }
+            }
+        }
+    }
+
+    for (auto &servo : _servos)
+    {
         servo.second->loop();
     }
-    for(auto &motor : _motors) {
+    for (auto &motor : _motors)
+    {
         motor.second->loop();
     }
-    for(auto &motor : _brushlessMotors) {
+    for (auto &motor : _brushlessMotors)
+    {
         motor.second->loop();
     }
 }
@@ -101,6 +169,7 @@ void App::loadResources()
     this->loadMotors();
     this->loadBrushlessMotors();
     this->loadServos();
+    this->loadGyros();
 }
 
 void App::resetController()
@@ -114,13 +183,20 @@ void App::resetController()
 
 void App::resetResources()
 {
-    for (auto& pair : _brushlessMotors) {
+    for (auto &pair : _brushlessMotors)
+    {
         delete pair.second;
     }
-    for (auto& pair : _motors) {
+    for (auto &pair : _motors)
+    {
         delete pair.second;
     }
-    for (auto& pair : _servos) {
+    for (auto &pair : _servos)
+    {
+        delete pair.second;
+    }
+    for (auto &pair : _gyros)
+    {
         delete pair.second;
     }
     if (_ruleEngine != nullptr)
@@ -132,6 +208,7 @@ void App::resetResources()
     _brushlessMotors.clear();
     _motors.clear();
     _servos.clear();
+    _gyros.clear();
     this->resetController();
 }
 
@@ -174,7 +251,8 @@ void App::loadMotors()
 {
     // Get the loaded brushless motor configs
     MotorConfig *configs = _store.getMotorsConfig();
-    for (auto& pair : _motors) {
+    for (auto &pair : _motors)
+    {
         delete pair.second;
     }
     _motors.clear();
@@ -194,7 +272,8 @@ void App::loadBrushlessMotors()
 {
     // Get the loaded brushless motor configs
     BrushlessMotorConfig *configs = _store.getBrushlessMotorsConfig();
-    for (auto& pair : _brushlessMotors) {
+    for (auto &pair : _brushlessMotors)
+    {
         delete pair.second;
     }
     _brushlessMotors.clear();
@@ -214,7 +293,8 @@ void App::loadServos()
 {
     // Get the loaded servos configs
     ServoConfig *configs = _store.getServosConfig();
-    for (auto& pair : _servos) {
+    for (auto &pair : _servos)
+    {
         delete pair.second;
     }
     _servos.clear();
@@ -230,4 +310,57 @@ void App::loadServos()
     }
 
     Serial.println("Servos loaded: " + String(_servos.size()));
+}
+
+void App::loadGyros()
+{
+    // Get the loaded gyros configs
+    BMI160GyroConfig *configs = _store.getGyrosConfig();
+    for (auto &pair : _gyros)
+    {
+        delete pair.second;
+    }
+    _gyros.clear();
+
+    // Initialize Gyros instances for each valid config
+    for (int i = 0; i < MAX_GYROS; i++)
+    {
+        // Check if this config slot has a valid ID (not empty)
+        if (strlen(configs[i].id) > 0)
+        {
+            _gyros[configs[i].id] = new BMI160Gyro(configs[i]);
+            _gyros[configs[i].id]->begin();
+        }
+    }
+
+    Serial.println("Gyros loaded: " + String(_gyros.size()));
+}
+
+void App::disarm()
+{
+    for (auto &motor : _motors)
+    {
+        motor.second->setThrottle(0);
+        motor.second->loop();
+    }
+    for (auto &brushlessMotor : _brushlessMotors)
+    {
+        brushlessMotor.second->setThrottle(0);
+        brushlessMotor.second->loop();
+    }
+    for (auto &servo : _servos)
+    {
+        servo.second->setAngle(servo.second->getMidAngle());
+        servo.second->loop();
+    }
+}
+
+void App::blinkD2LED()
+{
+    static uint32_t last = 0;
+    if (millis() - last > 300)
+    {
+        last = millis();
+        digitalWrite(2, !digitalRead(2));
+    }
 }
