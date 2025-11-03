@@ -51,7 +51,7 @@ void App::loop()
         blinkD2LED();
         return this->disarm();
     }
-    digitalWrite(2, HIGH); // Indicate that loop in process
+    digitalWrite(2, HIGH); // Indicate that controller connected & rules are loaded
 
     _controller->loop();
     for (auto &rule : _ruleEngine->rules)

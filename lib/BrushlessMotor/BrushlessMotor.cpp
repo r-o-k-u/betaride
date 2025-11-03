@@ -35,7 +35,6 @@ void BrushlessMotor::loop()
         this->_throttleLvl = 0;
     }
 
-    Serial.println("Throttle: " + String(this->_throttleLvl));
     if (this->_reverseAt != 0)
     {
         unsigned long currentTime = millis();
