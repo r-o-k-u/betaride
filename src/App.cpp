@@ -355,9 +355,11 @@ void App::disarm()
     }
 }
 
-void App::blinkD2LED() {
+void App::blinkD2LED()
+{
     static uint32_t last = 0;
-    if(millis() - last > 300) {
+    if (millis() - last > 300)
+    {
         last = millis();
         digitalWrite(2, !digitalRead(2));
     }
